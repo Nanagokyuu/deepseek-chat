@@ -1,75 +1,89 @@
-# chat-demo
+# DeepSeek Chat（多厂商兼容 & 全平台客户端）
 
 [English](README.md) | 简体中文
 
-基于 DeepSeek API 的静态聊天示例。无需应用后端，浏览器直接请求配置的 API 服务。
+基于 [`deepseek-ai/chat-demo`](https://github.com/deepseek-ai/chat-demo) 改造的跨平台、多 AI 厂商通用聊天客户端。完整保留 DeepSeek 原生 API 体验，同时支持接入 **OpenAI 兼容、Anthropic (Claude)、Google Gemini** 等主流服务商，并集成 **Capacitor**（Android / iOS）与 **Capacitor-Electron**（Windows / macOS / Linux）全平台打包方案。
 
-点击 [在线体验](https://deepseek-ai.github.io/chat-demo/) 即可使用，也可以前往 [Releases](https://github.com/deepseek-ai/deepseek-chat-demo/releases) 下载压缩包，解压后双击 `index.html` 在本地使用，无需安装或构建。首次使用时，请在设置中填写 API Key。
+## 核心特性
 
-## 运行
+- **多厂商 API 接入**：内置 **DeepSeek、OpenAI、Anthropic (Claude)、Google Gemini、OpenRouter、硅基流动 (SiliconFlow)、阿里云百炼 (DashScope)、Ollama** 预设，支持自定义 Base URL、自动拉取模型列表及连接测试。
+- **DeepSeek 原生与第三方双轨兼容**：
+  - **深度思考**：使用 DeepSeek 时保留原生开关；使用其他支持多档位的模型时提供 `关 / 低 / 中 / 高` 档位切换，兼容 OpenAI `reasoning_effort`、Anthropic `thinking.budget_tokens`、Gemini `thinkingConfig` 以及流式 `reasoning_content` / `<think>...</think>` 自动拆流。
+  - **联网搜索**：DeepSeek 与 Gemini 优先走原生服务端搜索；其他厂商支持配置 **Tavily、Brave Search、Serper、SearXNG** 客户端搜索，无缝复用内置搜索来源面板与角标引用 UI。
+  - **链接阅读**：DeepSeek 走原生 `deepseek_read_url`；其他厂商自动使用客户端 `@mozilla/readability` 提取网页正文，并在跨域或受限时回退至 **Jina Reader**。
+  - **语音输入 (ASR) 与朗读 (TTS)**：支持 DeepSeek 原生接口、OpenAI 兼容 `/audio/transcriptions` 与 `/audio/speech`（24kHz PCM 流），以及系统原生语音兜底，非 DeepSeek 朗读前自动进行客户端 Markdown 清洗。
+  - **文件上传兼容层**：DeepSeek 保留原生 Files API；其他厂商自动转换为 Base64 图片/原生 PDF，或通过客户端按需解析（`pdfjs-dist` 解析 PDF、`mammoth` 解析 `.docx`、`fflate` 解析 `.pptx`/`.xlsx` 以及纯文本/代码直读）。
+- **完整聊天体验**：多会话管理、消息分支与编辑、首轮自动标题、Markdown、代码高亮、KaTeX 公式、Mermaid 图表、ZIP 历史导入导出、浅色/深色主题与移动端安全区适配。
+- **全平台分发**：支持静态 Web 部署、Capacitor 8 移动端打包（Android / iOS）与 `@capawesome/capacitor-electron` 桌面端打包（Windows / macOS / Linux）。
 
-准备 Node.js 22.12+ 和 pnpm：
+## 快速开始
+
+环境要求：**Node.js 22.12+** 与 **pnpm**：
 
 ```sh
-git clone https://github.com/deepseek-ai/chat-demo.git
-cd chat-demo
+git clone https://github.com/Nanagokyuu/deepseek-chat.git
+cd deepseek-chat
 pnpm install
 pnpm dev
 ```
 
-打开 http://localhost:8090 。
+浏览器访问 `http://localhost:8090`。
 
-生成静态产物：
+### 静态 Web 构建
 
 ```sh
 pnpm build
 ```
 
-产物位于 `dist/`，可部署到静态服务器，也可直接打开 `dist/index.html`。直接打开时，浏览器和 API 服务需允许 `file://` 页面的存储与跨域请求。
+产物输出在 `dist/` 目录（自动包含 `LICENSE` 与 `LICENSE-MIT`）。
 
-## 功能
+## 移动端打包 (Capacitor)
 
-- 多会话、自动标题、重命名与删除；编辑提问、重新生成和切换消息分支。
-- 流式回答、深度思考、智能搜索、链接阅读与来源引用；支持停止和符合条件的继续生成。
-- 附件上传、粘贴与拖拽，语音输入和回复朗读；移动端录音时输入框首行显示实时频谱。
-- Markdown、代码高亮、KaTeX 公式和 Mermaid 图表。
-- 简体中文与英文、浅色与深色主题、移动端布局、位置设置、历史导入导出。
+```sh
+# 构建前端产物并同步至 Android / iOS 工程
+pnpm cap:sync
 
-## 数据
-
-API Key 和设置保存在浏览器 localStorage，会话及附件原件保存在 IndexedDB，本地数据按浏览器用户配置和站点源（origin）隔离。发送对话、上传附件和使用语音功能时，相应内容会提交给配置的 API 服务。
-
-设置中的历史导入导出使用 ZIP 格式。导入会在确认并校验成功后替换全部本地会话和附件；导出包含会话与本地可用的图片原件，不包含 API Key、设置或非图片附件原件。格式与保留范围见[历史导入导出](src/services/chat/history/README.md)。
-
-设置 → 数据管理 → 删除所有对话，会在确认后清空全部本地会话、附件原件和未发送的草稿，停止正在生成的回复并回到新对话。API Key 和其他设置保留，已上传到 API 服务的文件不受影响。
-
-## 开发
-
-| 命令          | 用途                |
-| ------------- | ------------------- |
-| `pnpm dev`    | 启动开发服务器      |
-| `pnpm build`  | 构建到 `dist/`      |
-| `pnpm type`   | TypeScript 类型检查 |
-| `pnpm lint`   | oxlint 检查         |
-| `pnpm format` | oxfmt 格式化        |
-
-[rspack.config.ts](rspack.config.ts) 默认连接 `https://api.deepseek.com`。`createConfig({ apiOrigin, devServer })` 支持自定义 API 地址和开发服务器代理。
-
-聊天默认使用 `deepseek-flash`，通过 Anthropic 兼容的 Messages / Files API 通信；语音使用 ASR / TTS 接口。请求使用搜索、链接阅读、标题和 `latest_reminder` 等扩展，接入服务需支持相应能力。附件实际支持的格式以服务端校验为准。
-
-```text
-src/
-  app/                 应用布局、主题与全局样式
-  components/          聊天、设置、Markdown 等界面组件
-  i18n/                中英文文案
-  services/
-    api/               API 请求、SSE 与协议类型
-    chat/              会话、消息分支、本地存储与历史导入导出
-    markdown/          Markdown 解析、代码高亮与图表
-    speech/            录音与朗读
-  utils/               通用工具
+# 打开原生 IDE 进行构建或真机调试
+pnpm cap:android
+pnpm cap:ios
 ```
+
+## 桌面端打包 (Capacitor-Electron)
+
+首次构建前需在 `electron/` 目录安装桌面端依赖：
+
+```sh
+cd electron && npm install && cd ..
+```
+
+运行或打包各平台安装包：
+
+```sh
+# 本地启动 Electron 桌面端
+pnpm desktop:start
+
+# 打包 Windows NSIS 安装器
+pnpm desktop:pack:win
+
+# 打包 macOS DMG 镜像
+pnpm desktop:pack:mac
+
+# 打包 Linux AppImage
+pnpm desktop:pack:linux
+```
+
+> **Linux 发行版打包说明**：第一期默认构建 `AppImage`。`.deb`、`.rpm` 与 `.pkg.tar.zst`（`pacman`）的依赖元数据、入口配置及 Arch 模板已预先准备在 [electron/electron-builder.config.js](electron/electron-builder.config.js) 与 [electron/packaging/arch/PKGBUILD.template](electron/packaging/arch/PKGBUILD.template) 中，并在 [electron/package.json](electron/package.json) 预留了 `pack:linux:deb`、`pack:linux:rpm`、`pack:linux:pacman` 脚本供后续启用。
+
+## 开发命令
+
+| 命令          | 用途                   |
+| ------------- | ---------------------- |
+| `pnpm dev`    | 启动 Rspack 开发服务器 |
+| `pnpm build`  | 构建生产产物到 `dist/` |
+| `pnpm type`   | TypeScript 类型检查    |
+| `pnpm lint`   | oxlint 代码规范检查    |
+| `pnpm format` | oxfmt 代码格式化       |
 
 ## 许可证
 
-[MIT](LICENSE)。构建会将许可证复制到 `dist/LICENSE`，分发时请一并保留；第三方依赖遵循各自的许可证。
+本项目代码采用 **Mozilla Public License Version 2.0（[MPL-2.0](LICENSE)）** 开源，同时保留上游项目 `deepseek-ai/chat-demo` 的原始 **[MIT 许可证](LICENSE-MIT)**。构建静态产物与桌面端安装包时均会一并携带上述两份许可证文件。

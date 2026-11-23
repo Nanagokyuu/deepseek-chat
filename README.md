@@ -1,75 +1,89 @@
-# chat-demo
+# DeepSeek Chat (Multi-Provider & Cross-Platform)
 
 English | [简体中文](README.zh-CN.md)
 
-A static chat demo powered by the DeepSeek API. No application backend is required: the browser connects directly to the configured API service.
+A cross-platform, multi-provider AI chat client built on top of [`deepseek-ai/chat-demo`](https://github.com/deepseek-ai/chat-demo). It preserves the native DeepSeek API experience while adding full support for OpenAI-compatible, Anthropic (Claude), and Google Gemini APIs, along with Capacitor mobile (Android / iOS) and Capacitor-Electron desktop (Windows / macOS / Linux) packaging.
 
-You can [try the app online](https://deepseek-ai.github.io/chat-demo/) or download the archive from [Releases](https://github.com/deepseek-ai/deepseek-chat-demo/releases), extract it, and double-click `index.html` to use it locally without installation or a build. Enter your API key in Settings before your first chat.
+## Highlights
 
-## Getting started
+- **Multi-Provider Support**: Built-in presets for **DeepSeek**, **OpenAI**, **Anthropic (Claude)**, **Google Gemini**, **OpenRouter**, **SiliconFlow**, **Alibaba DashScope**, and **Ollama**, plus custom provider endpoints and model fetching.
+- **Dual-Track DeepSeek & Third-Party Capabilities**:
+  - **Deep Thinking**: Native toggle for DeepSeek; adaptive effort levels (`Off` / `Low` / `Medium` / `High`) for OpenAI reasoning, Anthropic thinking budget, and Gemini thinkingConfig, plus streaming `reasoning_content` and `<think>...</think>` tag splitting.
+  - **Web Search**: Native `deepseek_web_search` and Gemini `google_search` grounding; client-side **Tavily**, **Brave Search**, **Serper**, and **SearXNG** integration for other providers, reusing the built-in source panel and citations UI.
+  - **Link Reading**: Native `deepseek_read_url` for DeepSeek; client-side `@mozilla/readability` extraction with automatic **Jina Reader** fallback for other providers.
+  - **Voice Input (ASR) & Read Aloud (TTS)**: Supports DeepSeek native `/v1/tools/asr` & `/v1/tools/tts`, OpenAI-compatible Whisper & TTS (`/audio/transcriptions` & `/audio/speech` PCM stream), and system speech fallback with client-side Markdown filtering.
+  - **Attachment Compatibility Layer**: Native Files API for DeepSeek; automatic Base64 image resizing, native PDF or client-side `pdfjs-dist` extraction, `.docx` (`mammoth`), `.pptx` / `.xlsx` (`fflate` XML parsing), and plain text / code injection for other providers.
+- **Rich Chat Experience**: Multi-session management, message branching & editing, automatic title generation, Markdown, syntax highlighting, KaTeX math, Mermaid diagrams, ZIP history import/export, and light/dark themes.
+- **Cross-Platform**: Runs as a static Web app, Android/iOS mobile app via **Capacitor 8**, and Windows/macOS/Linux desktop app via **`@capawesome/capacitor-electron`**.
 
-Install Node.js 22.12+ and pnpm, then run:
+## Getting Started
+
+Requires **Node.js 22.12+** and **pnpm**:
 
 ```sh
-git clone https://github.com/deepseek-ai/chat-demo.git
-cd chat-demo
+git clone https://github.com/Nanagokyuu/deepseek-chat.git
+cd deepseek-chat
 pnpm install
 pnpm dev
 ```
 
-Open http://localhost:8090.
+Open `http://localhost:8090`.
 
-To build the static site:
+### Static Web Build
 
 ```sh
 pnpm build
 ```
 
-The output is written to `dist/`. Deploy it to a static web server or open `dist/index.html` directly. Opening the file directly requires browser support for storage on `file://` pages and an API service that permits their cross-origin requests.
+Output is generated in `dist/` (including `LICENSE` and `LICENSE-MIT`).
 
-## Features
+## Mobile Packaging (Capacitor)
 
-- Multiple conversations with automatic titles, renaming, and deletion; edit prompts, regenerate replies, and switch between message branches.
-- Streaming replies, deep thinking, smart search, link reading, and source citations; stop generation or continue eligible replies.
-- Upload, paste, or drag and drop attachments; use voice input and read replies aloud. A live audio spectrum appears in the first row of the input area while recording on mobile.
-- Markdown, syntax highlighting, KaTeX math, and Mermaid diagrams.
-- Simplified Chinese and English, light and dark themes, mobile layouts, location settings, and chat history import and export.
+```sh
+# Build web bundle and sync Android & iOS native projects
+pnpm cap:sync
 
-## Data and storage
+# Open native IDEs
+pnpm cap:android
+pnpm cap:ios
+```
 
-Your API key and settings are stored in the browser's localStorage. Conversations and original attachments are stored in IndexedDB. Local data is isolated by browser profile and site origin. Sending messages, uploading attachments, and using speech features sends the relevant content to the configured API service.
+## Desktop Packaging (Capacitor-Electron)
 
-History import and export in Settings use ZIP archives. After confirmation and successful validation, importing replaces all local conversations and attachments. Exports include conversations and locally available original images, but exclude API keys, settings, and original non-image attachments. See the [history import/export documentation (Chinese)](src/services/chat/history/README.md) for the archive format and preservation details.
+Install desktop dependencies once inside `electron/`:
 
-Settings → Data → Delete all chats clears all local conversations, original attachments, and unsent drafts after confirmation. It stops ongoing replies and returns to a new chat. Your API key and settings are preserved; files already uploaded to the API service are not deleted.
+```sh
+cd electron && npm install && cd ..
+```
+
+Run or package for desktop targets:
+
+```sh
+# Run desktop app locally
+pnpm desktop:start
+
+# Windows (NSIS installer)
+pnpm desktop:pack:win
+
+# macOS (DMG image)
+pnpm desktop:pack:mac
+
+# Linux (AppImage)
+pnpm desktop:pack:linux
+```
+
+> **Linux packages note**: Phase 1 targets `AppImage` by default. Configuration and metadata for `.deb`, `.rpm`, and `.pkg.tar.zst` (`pacman`) are pre-configured in [electron/electron-builder.config.js](electron/electron-builder.config.js) and [electron/packaging/arch/PKGBUILD.template](electron/packaging/arch/PKGBUILD.template), with dedicated scripts (`pack:linux:deb`, `pack:linux:rpm`, `pack:linux:pacman`) in [electron/package.json](electron/package.json).
 
 ## Development
 
-| Command       | Description                  |
-| ------------- | ---------------------------- |
-| `pnpm dev`    | Start the development server |
-| `pnpm build`  | Build into `dist/`           |
-| `pnpm type`   | Run TypeScript type checks   |
-| `pnpm lint`   | Lint with oxlint             |
-| `pnpm format` | Format with oxfmt            |
-
-[rspack.config.ts](rspack.config.ts) uses `https://api.deepseek.com` by default. Use `createConfig({ apiOrigin, devServer })` to customize the API origin and development server proxy.
-
-Chat uses `deepseek-flash` by default through Anthropic-compatible Messages / Files APIs. Speech features use ASR / TTS endpoints. Requests include extensions for search, link reading, titles, and `latest_reminder`, so the configured service must support the corresponding capabilities. Supported attachment formats are determined by server-side validation.
-
-```text
-src/
-  app/                 Application layout, themes, and global styles
-  components/          Chat, settings, Markdown, and other UI components
-  i18n/                English and Chinese translations
-  services/
-    api/               API requests, SSE, and protocol types
-    chat/              Conversations, message branches, storage, and history import/export
-    markdown/          Markdown parsing, syntax highlighting, and diagrams
-    speech/            Audio recording and read-aloud playback
-  utils/               Shared utilities
-```
+| Command       | Description                        |
+| ------------- | ---------------------------------- |
+| `pnpm dev`    | Start Rspack dev server            |
+| `pnpm build`  | Build production bundle to `dist/` |
+| `pnpm type`   | Run TypeScript type check          |
+| `pnpm lint`   | Run oxlint                         |
+| `pnpm format` | Format code with oxfmt             |
 
 ## License
 
-[MIT](LICENSE). The build copies the license to `dist/LICENSE`; include it when distributing the app. Third-party dependencies are subject to their own licenses.
+This project is licensed under the **Mozilla Public License Version 2.0 ([MPL-2.0](LICENSE))**, while preserving the original upstream **[MIT License](LICENSE-MIT)** from `deepseek-ai/chat-demo`. Both license files are copied to `dist/` and desktop resources during builds.
