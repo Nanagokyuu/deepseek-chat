@@ -28,13 +28,21 @@ export const ProviderSettings = () => {
   const activeProvider = providers.find((p) => p.id === activeProviderId) ?? providers[0]
 
   const [editing, setEditing] = useState<ProviderConfig | null>(null)
-  const [modelsInput, setModelsInput] = useState('')
+  const [candidateModels, setCandidateModels] = useState<string[]>([])
+  const [newModelInput, setNewModelInput] = useState('')
   const [testing, setTesting] = useState(false)
   const [testNotice, setTestNotice] = useState<{ text: string; error?: boolean } | null>(null)
 
   const startEdit = (provider: ProviderConfig) => {
-    setEditing({ ...provider })
-    setModelsInput(provider.models.join(', '))
+    const presetMatches =
+      PROVIDER_PRESETS.find((item) => item.config.protocol === provider.protocol)?.config.models ??
+      []
+    const pool = [...new Set([...provider.models, provider.defaultModel, ...presetMatches])].filter(
+      Boolean
+    )
+    setEditing({ ...provider, models: [...provider.models] })
+    setCandidateModels(pool)
+    setNewModelInput('')
     setTestNotice(null)
   }
 
@@ -52,19 +60,59 @@ export const ProviderSettings = () => {
     startEdit(config)
   }
 
-  const parseModels = (raw: string, fallback: string) => {
-    const list = raw
-      .split(/[,，\n]/)
-      .map((s) => s.trim())
-      .filter(Boolean)
-    return list.length > 0 ? [...new Set(list)] : fallback ? [fallback] : []
+  const toggleModel = (model: string) => {
+    if (!editing) {
+      return
+    }
+    const selected = editing.models.includes(model)
+    const nextModels = selected
+      ? editing.models.filter((item) => item !== model)
+      : [...editing.models, model]
+    // 至少保留一个已选模型
+    if (nextModels.length === 0) {
+      return
+    }
+    const nextDefault = nextModels.includes(editing.defaultModel)
+      ? editing.defaultModel
+      : nextModels[0]
+    setEditing({ ...editing, models: nextModels, defaultModel: nextDefault })
+  }
+
+  const addCustomModel = () => {
+    const id = newModelInput.trim()
+    if (!editing || !id) {
+      return
+    }
+    const nextCandidates = candidateModels.includes(id) ? candidateModels : [...candidateModels, id]
+    const nextModels = editing.models.includes(id) ? editing.models : [...editing.models, id]
+    setCandidateModels(nextCandidates)
+    setEditing({
+      ...editing,
+      models: nextModels,
+      defaultModel: editing.defaultModel || id,
+    })
+    setNewModelInput('')
+  }
+
+  const selectAllModels = () => {
+    if (!editing || candidateModels.length === 0) {
+      return
+    }
+    setEditing({
+      ...editing,
+      models: [...candidateModels],
+      defaultModel: candidateModels.includes(editing.defaultModel)
+        ? editing.defaultModel
+        : candidateModels[0],
+    })
   }
 
   const handleSave = () => {
     if (!editing) {
       return
     }
-    const models = parseModels(modelsInput, editing.defaultModel)
+    const models =
+      editing.models.length > 0 ? editing.models : [editing.defaultModel].filter(Boolean)
     const defaultModel = models.includes(editing.defaultModel)
       ? editing.defaultModel
       : models[0] || editing.defaultModel
@@ -96,11 +144,15 @@ export const ProviderSettings = () => {
         baseUrl: editing.baseUrl.trim(),
         apiKey: editing.apiKey.trim(),
       })
-      const existing = parseModels(modelsInput, editing.defaultModel)
-      const merged = [...new Set([...fetched, ...existing])]
-      setModelsInput(merged.join(', '))
-      if (merged.length > 0 && !merged.includes(editing.defaultModel)) {
-        setEditing({ ...editing, defaultModel: merged[0] })
+      const mergedCandidates = [...new Set([...fetched, ...candidateModels])]
+      setCandidateModels(mergedCandidates)
+      // 若此前没有任何已选模型，自动选中首个拉取到的模型
+      if (editing.models.length === 0 && mergedCandidates.length > 0) {
+        setEditing({
+          ...editing,
+          models: [mergedCandidates[0]],
+          defaultModel: mergedCandidates[0],
+        })
       }
       setTestNotice({ text: t('providersTestSuccess', { count: fetched.length }) })
     } catch (error) {
@@ -203,22 +255,76 @@ export const ProviderSettings = () => {
               onChange={(e) => setEditing({ ...editing, apiKey: e.target.value })}
             />
           </div>
+
           <div className={styles.providerField}>
-            <label className={styles.providerFieldLabel}>{t('providersModels')}</label>
-            <input
-              className={styles.providerInput}
-              value={modelsInput}
-              onChange={(e) => setModelsInput(e.target.value)}
-            />
+            <div className={styles.modelHeaderRow}>
+              <label className={styles.providerFieldLabel}>{t('providersModel')}</label>
+              <button type="button" className={styles.modelActionLink} onClick={selectAllModels}>
+                {t('providersSelectAll')}
+              </button>
+            </div>
+            <div className={styles.modelAddRow}>
+              <input
+                className={styles.providerInput}
+                value={newModelInput}
+                placeholder={t('providersAddModelPlaceholder')}
+                onChange={(e) => setNewModelInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                    e.preventDefault()
+                    addCustomModel()
+                  }
+                }}
+              />
+              <Button variant="outlined" size="m" onClick={addCustomModel}>
+                {t('providersAddModel')}
+              </Button>
+            </div>
+            <div className={styles.modelChecklist}>
+              {candidateModels.map((model) => {
+                const checked = editing.models.includes(model)
+                const isDefault = editing.defaultModel === model
+                return (
+                  <div key={model} className={styles.modelCheckRow}>
+                    <label className={styles.modelCheckLabel}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleModel(model)}
+                      />
+                      <span className={styles.modelCheckName}>{model}</span>
+                    </label>
+                    {checked ? (
+                      isDefault ? (
+                        <span className={styles.modelDefaultBadge}>
+                          {t('providersDefaultBadge')}
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          className={styles.modelActionLink}
+                          onClick={() => setEditing({ ...editing, defaultModel: model })}
+                        >
+                          {t('providersSetDefault')}
+                        </button>
+                      )
+                    ) : null}
+                  </div>
+                )
+              })}
+            </div>
           </div>
+
           <div className={styles.providerField}>
             <label className={styles.providerFieldLabel}>{t('providersDefaultModel')}</label>
-            <input
-              className={styles.providerInput}
+            <Select
+              ariaLabel={t('providersDefaultModel')}
               value={editing.defaultModel}
-              onChange={(e) => setEditing({ ...editing, defaultModel: e.target.value })}
+              options={editing.models.map((model) => ({ value: model, label: model }))}
+              onChange={(defaultModel) => setEditing({ ...editing, defaultModel })}
             />
           </div>
+
           <div className={styles.providerField}>
             <label className={styles.providerFieldLabel}>{t('providersThinkingProtocol')}</label>
             <Select

@@ -22,6 +22,6 @@ export const ensureApiKey = () => {
   if (provider.apiKey || isLocal) {
     return true
   }
-  openSettings('data')
+  openSettings('providers')
   return false
 }
