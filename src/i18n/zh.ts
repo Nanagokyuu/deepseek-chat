@@ -222,4 +222,22 @@ export const zh = {
   providersSetDefault: '设为默认',
   providersDefaultBadge: '默认',
   providersSelectAll: '全选',
+  providersAdvanced: '高级选项',
+  onboardingTitle: '快速配置 AI 服务',
+  onboardingStep1Title: '1. 选择你的 AI 服务商',
+  onboardingStep1Subtitle:
+    '支持 DeepSeek 原生及 OpenAI、Claude、Gemini 等主流服务，可随时在设置中切换。',
+  onboardingStep2Title: '2. 填写接口凭证',
+  onboardingStep3Title: '3. 选择可用模型',
+  onboardingGetKey: '前往获取 API Key',
+  onboardingLocalPrivacy:
+    '所有 API Key 与聊天记录仅保存在本机，应用直接请求对应厂商接口，不经过任何第三方服务器。',
+  onboardingOllamaHint: 'Ollama 运行在本机，无需 API Key，点击验证即可检测已安装的本地模型。',
+  onboardingBack: '上一步',
+  onboardingSkip: '跳过',
+  onboardingVerifyNext: '验证并继续',
+  onboardingFinish: '开始对话',
+  onboardingFullSettings: '进入完整设置',
+  welcomeUnconfigured: '尚未配置可用模型服务',
+  welcomeConfigureAction: '快速配置服务商',
 } as const

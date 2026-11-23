@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslate } from '../../i18n/index.js'
 import { getProviderAdapter } from '../../services/api/providers/registry.js'
 import { PROVIDER_PRESETS } from '../../services/api/providers/presets.js'
@@ -18,6 +18,7 @@ import {
 import { createId } from '../../utils/id.js'
 import { Button } from '../base/Button.js'
 import { Select } from '../base/Select.js'
+import { isProviderReady } from './onboardingState.js'
 import styles from './Settings.module.css'
 
 export const ProviderSettings = () => {
@@ -45,6 +46,15 @@ export const ProviderSettings = () => {
     setNewModelInput('')
     setTestNotice(null)
   }
+
+  // 当前激活服务商尚未填写密钥时自动展开编辑区，减少点击层级
+  useEffect(() => {
+    if (!editing && !isProviderReady(activeProvider)) {
+      startEdit(activeProvider)
+    }
+    // 仅在激活服务商切换时检查是否自动展开
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeProvider.id])
 
   const addFromPreset = (presetId: string) => {
     const preset = PROVIDER_PRESETS.find((item) => item.presetId === presetId)
@@ -222,22 +232,6 @@ export const ProviderSettings = () => {
             />
           </div>
           <div className={styles.providerField}>
-            <label className={styles.providerFieldLabel}>{t('providersProtocol')}</label>
-            <Select
-              ariaLabel={t('providersProtocol')}
-              value={editing.protocol}
-              options={[
-                { value: 'deepseek', label: 'DeepSeek (Anthropic + Tools)' },
-                { value: 'openai-compatible', label: 'OpenAI Compatible' },
-                { value: 'anthropic', label: 'Anthropic Messages' },
-                { value: 'gemini', label: 'Google Gemini' },
-              ]}
-              onChange={(protocol) =>
-                setEditing({ ...editing, protocol: protocol as ProviderProtocol })
-              }
-            />
-          </div>
-          <div className={styles.providerField}>
             <label className={styles.providerFieldLabel}>{t('providersBaseUrl')}</label>
             <input
               className={styles.providerInput}
@@ -325,36 +319,59 @@ export const ProviderSettings = () => {
             />
           </div>
 
-          <div className={styles.providerField}>
-            <label className={styles.providerFieldLabel}>{t('providersThinkingProtocol')}</label>
-            <Select
-              ariaLabel={t('providersThinkingProtocol')}
-              value={editing.thinkingProtocol ?? 'auto'}
-              options={[
-                { value: 'auto', label: t('providersThinkingAuto') },
-                { value: 'deepseek', label: t('providersThinkingDeepSeek') },
-                { value: 'openai-reasoning', label: t('providersThinkingOpenAI') },
-                { value: 'boolean', label: t('providersThinkingBoolean') },
-                { value: 'anthropic', label: t('providersThinkingAnthropic') },
-                { value: 'gemini', label: t('providersThinkingGemini') },
-                { value: 'none', label: t('providersThinkingNone') },
-              ]}
-              onChange={(thinkingProtocol) =>
-                setEditing({
-                  ...editing,
-                  thinkingProtocol: thinkingProtocol as ThinkingProtocol,
-                })
-              }
-            />
-          </div>
-          <div className={styles.providerField}>
-            <label className={styles.providerFieldLabel}>{t('providersSystemPrompt')}</label>
-            <input
-              className={styles.providerInput}
-              value={editing.systemPrompt ?? ''}
-              onChange={(e) => setEditing({ ...editing, systemPrompt: e.target.value })}
-            />
-          </div>
+          <details className={styles.advancedDetails}>
+            <summary className={styles.advancedSummary}>{t('providersAdvanced')}</summary>
+            <div className={styles.advancedFields}>
+              <div className={styles.providerField}>
+                <label className={styles.providerFieldLabel}>{t('providersProtocol')}</label>
+                <Select
+                  ariaLabel={t('providersProtocol')}
+                  value={editing.protocol}
+                  options={[
+                    { value: 'deepseek', label: 'DeepSeek (Anthropic + Tools)' },
+                    { value: 'openai-compatible', label: 'OpenAI Compatible' },
+                    { value: 'anthropic', label: 'Anthropic Messages' },
+                    { value: 'gemini', label: 'Google Gemini' },
+                  ]}
+                  onChange={(protocol) =>
+                    setEditing({ ...editing, protocol: protocol as ProviderProtocol })
+                  }
+                />
+              </div>
+              <div className={styles.providerField}>
+                <label className={styles.providerFieldLabel}>
+                  {t('providersThinkingProtocol')}
+                </label>
+                <Select
+                  ariaLabel={t('providersThinkingProtocol')}
+                  value={editing.thinkingProtocol ?? 'auto'}
+                  options={[
+                    { value: 'auto', label: t('providersThinkingAuto') },
+                    { value: 'deepseek', label: t('providersThinkingDeepSeek') },
+                    { value: 'openai-reasoning', label: t('providersThinkingOpenAI') },
+                    { value: 'boolean', label: t('providersThinkingBoolean') },
+                    { value: 'anthropic', label: t('providersThinkingAnthropic') },
+                    { value: 'gemini', label: t('providersThinkingGemini') },
+                    { value: 'none', label: t('providersThinkingNone') },
+                  ]}
+                  onChange={(thinkingProtocol) =>
+                    setEditing({
+                      ...editing,
+                      thinkingProtocol: thinkingProtocol as ThinkingProtocol,
+                    })
+                  }
+                />
+              </div>
+              <div className={styles.providerField}>
+                <label className={styles.providerFieldLabel}>{t('providersSystemPrompt')}</label>
+                <input
+                  className={styles.providerInput}
+                  value={editing.systemPrompt ?? ''}
+                  onChange={(e) => setEditing({ ...editing, systemPrompt: e.target.value })}
+                />
+              </div>
+            </div>
+          </details>
 
           {testNotice ? (
             <div className={clsx(styles.description, testNotice.error && styles.error)}>

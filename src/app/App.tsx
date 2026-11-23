@@ -19,6 +19,8 @@ import {
   ensureApiKey,
   useSettingsDialog,
 } from '../components/settings/settingsDialogState.js'
+import { OnboardingDialog } from '../components/settings/OnboardingDialog.js'
+import { closeOnboarding, useOnboardingDialog } from '../components/settings/onboardingState.js'
 import { SettingsDialog } from '../components/settings/SettingsDialog.js'
 import { Toast } from '../components/base/Toast.js'
 import { showToast } from '../components/base/toastState.js'
@@ -81,6 +83,10 @@ export const App = () => {
   useEffect(
     () =>
       bindPlatformBackButton(() => {
+        if (useOnboardingDialog.getState().open) {
+          closeOnboarding()
+          return true
+        }
         if (useSettingsDialog.getState().open) {
           closeSettings()
           return true
@@ -157,6 +163,7 @@ export const App = () => {
         </main>
         <SearchPanel />
       </div>
+      <OnboardingDialog />
       <SettingsDialog />
       <Toast />
     </>

@@ -5,6 +5,9 @@ const API_ORIGIN = __API_ORIGIN__
 export type ProviderPreset = {
   presetId: string
   label: string
+  tagline: string
+  keyUrl?: string
+  requiresKey: boolean
   config: Omit<ProviderConfig, 'id' | 'apiKey'>
 }
 
@@ -24,7 +27,10 @@ export const createDefaultDeepSeekProvider = (apiKey = ''): ProviderConfig => ({
 export const PROVIDER_PRESETS: ProviderPreset[] = [
   {
     presetId: 'deepseek',
-    label: 'DeepSeek (原生)',
+    label: 'DeepSeek',
+    tagline: '原生深度思考 · 联网搜索 · 语音 · 文件解析',
+    keyUrl: 'https://platform.deepseek.com/api_keys',
+    requiresKey: true,
     config: {
       name: 'DeepSeek',
       protocol: 'deepseek',
@@ -37,6 +43,9 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
   {
     presetId: 'openai',
     label: 'OpenAI',
+    tagline: 'GPT-4.1 · GPT-4o · o3 / o4-mini',
+    keyUrl: 'https://platform.openai.com/api-keys',
+    requiresKey: true,
     config: {
       name: 'OpenAI',
       protocol: 'openai-compatible',
@@ -49,6 +58,9 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
   {
     presetId: 'anthropic',
     label: 'Anthropic (Claude)',
+    tagline: 'Claude Sonnet 4 · 扩展思考 · 原生 PDF',
+    keyUrl: 'https://console.anthropic.com/settings/keys',
+    requiresKey: true,
     config: {
       name: 'Anthropic',
       protocol: 'anthropic',
@@ -65,6 +77,9 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
   {
     presetId: 'gemini',
     label: 'Google Gemini',
+    tagline: 'Gemini 2.5 · 原生 Google 搜索 · 思考档位',
+    keyUrl: 'https://aistudio.google.com/apikey',
+    requiresKey: true,
     config: {
       name: 'Google Gemini',
       protocol: 'gemini',
@@ -77,6 +92,9 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
   {
     presetId: 'openrouter',
     label: 'OpenRouter',
+    tagline: '聚合全球主流大模型单一入口',
+    keyUrl: 'https://openrouter.ai/keys',
+    requiresKey: true,
     config: {
       name: 'OpenRouter',
       protocol: 'openai-compatible',
@@ -89,6 +107,9 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
   {
     presetId: 'siliconflow',
     label: 'SiliconFlow (硅基流动)',
+    tagline: '高速国产模型托管 · DeepSeek / Qwen',
+    keyUrl: 'https://cloud.siliconflow.cn/account/ak',
+    requiresKey: true,
     config: {
       name: 'SiliconFlow',
       protocol: 'openai-compatible',
@@ -101,6 +122,9 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
   {
     presetId: 'dashscope',
     label: '阿里云百炼 (DashScope)',
+    tagline: '通义千问 Qwen / QwQ 官方兼容接口',
+    keyUrl: 'https://bailian.console.aliyun.com/',
+    requiresKey: true,
     config: {
       name: 'DashScope',
       protocol: 'openai-compatible',
@@ -112,13 +136,29 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
   },
   {
     presetId: 'ollama',
-    label: 'Ollama (本地)',
+    label: 'Ollama (本地模型)',
+    tagline: '本机离线运行 · 无需 API Key',
+    requiresKey: false,
     config: {
       name: 'Ollama',
       protocol: 'openai-compatible',
       baseUrl: 'http://localhost:11434/v1',
       models: ['llama3.2', 'qwen3:8b', 'deepseek-r1:8b'],
       defaultModel: 'llama3.2',
+      thinkingProtocol: 'auto',
+    },
+  },
+  {
+    presetId: 'custom',
+    label: '自定义 OpenAI 兼容',
+    tagline: '自建网关 · OneAPI / NewAPI / vLLM',
+    requiresKey: true,
+    config: {
+      name: 'Custom OpenAI',
+      protocol: 'openai-compatible',
+      baseUrl: 'https://api.example.com/v1',
+      models: ['gpt-4o'],
+      defaultModel: 'gpt-4o',
       thinkingProtocol: 'auto',
     },
   },

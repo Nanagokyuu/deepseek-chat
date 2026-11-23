@@ -231,4 +231,23 @@ export const en = {
   providersSetDefault: 'Set default',
   providersDefaultBadge: 'Default',
   providersSelectAll: 'Select all',
+  providersAdvanced: 'Advanced options',
+  onboardingTitle: 'Quick Setup',
+  onboardingStep1Title: '1. Choose an AI Provider',
+  onboardingStep1Subtitle:
+    'Works with DeepSeek, OpenAI, Claude, Gemini, or local Ollama. You can switch anytime.',
+  onboardingStep2Title: '2. Enter Credentials',
+  onboardingStep3Title: '3. Select Models',
+  onboardingGetKey: 'Get API Key',
+  onboardingLocalPrivacy:
+    'All API keys and chat history are stored locally on your device and sent directly to the selected provider.',
+  onboardingOllamaHint:
+    'Ollama runs locally and does not require an API key. Click Verify to detect local models.',
+  onboardingBack: 'Back',
+  onboardingSkip: 'Skip',
+  onboardingVerifyNext: 'Verify & Continue',
+  onboardingFinish: 'Start Chatting',
+  onboardingFullSettings: 'Full Settings',
+  welcomeUnconfigured: 'No configured AI provider yet',
+  welcomeConfigureAction: 'Quick Setup',
 } satisfies Record<keyof typeof zh, string>
