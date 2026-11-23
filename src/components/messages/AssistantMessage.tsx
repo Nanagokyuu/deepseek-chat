@@ -5,6 +5,7 @@ import { IconRefreshOutline16, IconWarningOutline16 } from '../base/icons.js'
 import { describeReply } from '../../services/chat/describe.js'
 import { canContinueReply } from '../../services/chat/reply.js'
 import { continueReply, regenerateReply } from '../../services/chat/store.js'
+import { useSettings } from '../../services/settings.js'
 import { stopReadAloud } from '../../services/speech/readAloud.js'
 import type { AssistantMessage as AssistantMessageType } from '../../services/chat/types.js'
 import { openSettings } from '../settings/settingsDialogState.js'
@@ -46,6 +47,10 @@ export const AssistantMessage = memo(function AssistantMessage({
   const t = useTranslate()
   const view = useReplyView(message, streaming)
   const panelEntry = useSearchPanel((state) => state.entry)
+  const providers = useSettings((state) => state.providers)
+  const isDeepSeekReply =
+    !message.providerId ||
+    providers.find((item) => item.id === message.providerId)?.protocol === 'deepseek'
   const notice = streaming ? null : describeReply(message)
   // 安全拒绝：已下发的思考与正文按协议丢弃，只显示模板答复。
   const refused = message.stopReason === 'refusal'
@@ -108,7 +113,7 @@ export const AssistantMessage = memo(function AssistantMessage({
                 </button>
               </>
             ) : null}
-            {notice.action === 'topUp' ? (
+            {notice.action === 'topUp' && isDeepSeekReply ? (
               <>
                 {' '}
                 <a

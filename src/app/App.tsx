@@ -10,11 +10,15 @@ import {
   useChatStore,
 } from '../services/chat/store.js'
 import { SearchPanel } from '../components/search/SearchPanel.js'
-import { closeSearchPanel } from '../components/search/searchPanelState.js'
+import { closeSearchPanel, useSearchPanel } from '../components/search/searchPanelState.js'
 import { SessionView } from '../components/session/SessionView.js'
 import { MobileHeader } from '../components/session/MobileHeader.js'
 import { Welcome } from '../components/session/Welcome.js'
-import { ensureApiKey } from '../components/settings/settingsDialogState.js'
+import {
+  closeSettings,
+  ensureApiKey,
+  useSettingsDialog,
+} from '../components/settings/settingsDialogState.js'
 import { SettingsDialog } from '../components/settings/SettingsDialog.js'
 import { Toast } from '../components/base/Toast.js'
 import { showToast } from '../components/base/toastState.js'
@@ -22,8 +26,9 @@ import { onUploadNotice } from '../services/attachments.js'
 import { Button } from '../components/base/Button.js'
 import { stopReadAloud } from '../services/speech/readAloud.js'
 import { CollapsedSider } from '../components/sider/CollapsedSider.js'
-import { closeMobileSider } from '../components/sider/mobileSiderState.js'
+import { closeMobileSider, useMobileSider } from '../components/sider/mobileSiderState.js'
 import { MobileSider, Sider } from '../components/sider/Sider.js'
+import { bindPlatformBackButton } from '../services/platform/lifecycle.js'
 import styles from './App.module.css'
 
 export const App = () => {
@@ -72,6 +77,26 @@ export const App = () => {
     // 首次打开先在设置里输入 API Key
     ensureApiKey()
   }, [])
+
+  useEffect(
+    () =>
+      bindPlatformBackButton(() => {
+        if (useSettingsDialog.getState().open) {
+          closeSettings()
+          return true
+        }
+        if (useSearchPanel.getState().entry !== null) {
+          closeSearchPanel()
+          return true
+        }
+        if (useMobileSider.getState().open) {
+          closeMobileSider()
+          return true
+        }
+        return false
+      }),
+    []
+  )
 
   return (
     <>

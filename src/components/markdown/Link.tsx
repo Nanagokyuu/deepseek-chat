@@ -1,5 +1,7 @@
 import type { Image, Link as LinkNode } from 'mdast'
-import { memo, type ReactNode } from 'react'
+import { memo, type MouseEvent, type ReactNode } from 'react'
+import { isCapacitorNative, isElectron } from '../../services/platform/env.js'
+import { openExternalUrl } from '../../services/platform/io.js'
 
 const sanitizeUrl = (url: string) => {
   // 如果URL没有协议，添加默认的https协议
@@ -17,6 +19,15 @@ const sanitizeUrl = (url: string) => {
     return undefined
   }
 }
+
+const handleExternalClick =
+  (href: string | undefined) => (event: MouseEvent<HTMLAnchorElement>) => {
+    if (!href || (!isElectron() && !isCapacitorNative())) {
+      return
+    }
+    event.preventDefault()
+    void openExternalUrl(href)
+  }
 
 export const Link = memo(function Link({
   node,
@@ -39,7 +50,13 @@ export const Link = memo(function Link({
   const href = sanitizeUrl(node.url)
 
   return (
-    <a href={href} title={node.title || undefined} target="_blank" rel="noreferrer">
+    <a
+      href={href}
+      title={node.title || undefined}
+      target="_blank"
+      rel="noreferrer"
+      onClick={handleExternalClick(href)}
+    >
       {children}
     </a>
   )
@@ -49,7 +66,13 @@ export const Link = memo(function Link({
 export function ImageAsLink({ node }: { node: Image }) {
   const url = sanitizeUrl(node.url)
   return (
-    <a href={url} title={node.title ?? ''} target="_blank" rel="noreferrer">
+    <a
+      href={url}
+      title={node.title ?? ''}
+      target="_blank"
+      rel="noreferrer"
+      onClick={handleExternalClick(url)}
+    >
       {url}
     </a>
   )

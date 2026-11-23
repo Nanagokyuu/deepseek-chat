@@ -6,6 +6,7 @@ import { classifyApiError, getUploadErrorInfo, isRetryableApiError } from './api
 import type { FilePurpose } from './api/types.js'
 import { loadFile } from './chat/db.js'
 import type { FileAttachment } from './chat/types.js'
+import { getActiveProvider } from './settings.js'
 import { ACCEPT_FILE_EXTS } from './uploadExts.js'
 
 /** 允许上传的扩展名，按扩展名白名单过滤，清单见 uploadExts.ts */
@@ -134,8 +135,23 @@ const enqueueUpload = (
         return
       }
       try {
+        const provider = getActiveProvider()
+        if (provider.protocol !== 'deepseek') {
+          resolve(`local-${Date.now()}`)
+          return
+        }
         const body = file instanceof File ? file : new File([file], name, { type: file.type })
-        resolve((await uploadFile(apiKey, body, getUploadPurpose(name, isImage), signal)).id)
+        resolve(
+          (
+            await uploadFile(
+              provider.apiKey || apiKey,
+              body,
+              getUploadPurpose(name, isImage),
+              signal,
+              provider.baseUrl
+            )
+          ).id
+        )
       } catch (error) {
         reject(error)
       }

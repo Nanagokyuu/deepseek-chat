@@ -1,0 +1,24 @@
+{
+  "name": "deepseek-chat-electron",
+  "productName": "DeepSeek Chat",
+  "private": true,
+  "version": "0.1.3",
+  "description": "Electron platform project for DeepSeek Chat.",
+  "main": "build/main.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "electron .",
+    "pack": "npm run build && capacitor-electron vendor && electron-builder --config electron-builder.config.js",
+    "pack:win": "npm run build && capacitor-electron vendor && electron-builder --win nsis --config electron-builder.config.js",
+    "pack:mac": "npm run build && capacitor-electron vendor && electron-builder --mac dmg --config electron-builder.config.js",
+    "pack:linux": "npm run build && capacitor-electron vendor && electron-builder --linux AppImage --config electron-builder.config.js",
+    "pack:linux:deb": "npm run build && capacitor-electron vendor && LINUX_TARGETS=deb electron-builder --linux deb --config electron-builder.config.js",
+    "pack:linux:rpm": "npm run build && capacitor-electron vendor && LINUX_TARGETS=rpm electron-builder --linux rpm --config electron-builder.config.js",
+    "pack:linux:pacman": "npm run build && capacitor-electron vendor && LINUX_TARGETS=pacman electron-builder --linux pacman --config electron-builder.config.js"
+  },
+  "devDependencies": {
+    "electron": "^43.0.0",
+    "electron-builder": "^26.0.12",
+    "typescript": "^5.5.0"
+  }
+}

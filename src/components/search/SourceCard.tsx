@@ -1,4 +1,6 @@
 import clsx from 'clsx'
+import { isCapacitorNative, isElectron } from '../../services/platform/env.js'
+import { openExternalUrl } from '../../services/platform/io.js'
 import type { Source } from '../../services/chat/view.js'
 import { formatDate } from '../../utils/format.js'
 import { SiteLogo } from './SiteLogo.js'
@@ -14,7 +16,19 @@ const formatPublishedAt = (value: string | null) => (value ? (formatDate(value, 
 export const SourceCard = ({ source, className }: { source: Source; className?: string }) => {
   const date = formatPublishedAt(source.publishedAt)
   return (
-    <a className={styles.anchor} href={source.url} target="_blank" rel="noreferrer">
+    <a
+      className={styles.anchor}
+      href={source.url}
+      target="_blank"
+      rel="noreferrer"
+      onClick={(event) => {
+        if (!isElectron() && !isCapacitorNative()) {
+          return
+        }
+        event.preventDefault()
+        void openExternalUrl(source.url)
+      }}
+    >
       <div className={clsx(styles.card, className)}>
         <div className={styles.meta}>
           <SiteLogo url={source.siteIcon} className={styles.siteIcon} />

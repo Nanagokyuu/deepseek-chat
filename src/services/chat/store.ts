@@ -1,7 +1,8 @@
 import { create } from 'zustand'
 import { createId } from '../../utils/id.js'
-import { ApiError, streamMessage } from '../api/client.js'
-import type { ChatModel, CreateMessageRequest } from '../api/types.js'
+import { ApiError } from '../api/client.js'
+import { getProviderAdapter } from '../api/providers/registry.js'
+import { resolveAttachmentForCompat, type ResolvedAttachment } from '../fileCompat.js'
 import { extractFileIds, getFileErrorCode, isRetryableApiError } from '../api/errors.js'
 import {
   cancelUpload,
@@ -10,7 +11,7 @@ import {
   uploadAttachment,
   useUploads,
 } from '../attachments.js'
-import { useSettings } from '../settings.js'
+import { getActiveProvider, useSettings } from '../settings.js'
 import { appendBranch, getVisibleMessages, normalizeSession, selectVersion } from './branches.js'
 import * as db from './db.js'
 import {
@@ -25,6 +26,7 @@ import {
   applyEvent,
   canContinueReply,
   getContextRounds,
+  getReplyText,
   settleReply,
   toRequestMessages,
 } from './reply.js'
@@ -38,29 +40,15 @@ import {
   type UserMessage,
 } from './types.js'
 
-/** deepseek-flash 同时支持深度思考与图片输入 */
-const MODEL: ChatModel = 'deepseek-flash'
-/** 所有生成请求统一携带的助手身份说明 */
+/** 默认模型与所有生成请求统一携带的助手身份说明 */
+const DEFAULT_DEEPSEEK_MODEL = 'deepseek-flash'
 const SYSTEM_PROMPT = '该助手为DeepSeek，由深度求索公司创造。'
 /** 保留最近打开的详情；当前会话、生成中及尚未成功保存的会话不淘汰。 */
 const SESSION_CACHE_LIMIT = 5
-/** 安全审核固定开启，所有请求都走扩展模式 */
-const SAFETY_CHECK = { level: 'high' } as const
 /** 服务端判定 file_id 失效后，重新补传并重发的最多次数（不含首次请求） */
 const FILE_RETRY_LIMIT = 2
 /** 退避基数，第 n 次重试等待 2^n 倍；连续失败达到上限就放弃，把原始报错展示出来 */
 const FILE_RETRY_BASE_DELAY = 1000
-
-/** 阅读链接始终开启，智能搜索开关控制是否另行声明搜索工具（含边想边搜）。 */
-const serverTools = (search: boolean): CreateMessageRequest['tools'] => {
-  const tools: CreateMessageRequest['tools'] = [
-    { type: 'deepseek_read_url', name: 'deepseek_read_url' },
-  ]
-  if (search) {
-    tools.push({ type: 'deepseek_web_search', name: 'deepseek_web_search' })
-  }
-  return tools
-}
 
 /** 允许自动补标题的请求；手动重命名后取消本轮标题写入，包含主动清空标题的情况。 */
 const titleRequests = new Set<AbortController>()
@@ -259,17 +247,21 @@ export const bindChatPersistence = () => {
   }
 }
 
-/** 按当前开关创建回复：深度思考对应 thinking，智能搜索控制 deepseek_web_search。 */
+/** 按当前服务商与开关创建回复 */
 const createReply = (): AssistantMessage => {
-  const { thinking, search } = useSettings.getState()
+  const { thinking, thinkingEffort, search, activeModel } = useSettings.getState()
+  const provider = getActiveProvider()
+  const model = activeModel || provider.defaultModel || DEFAULT_DEEPSEEK_MODEL
   return {
     id: createId(),
     role: 'assistant',
     createdAt: Date.now(),
-    model: MODEL,
+    model,
+    providerId: provider.id,
     thinking,
+    thinkingEffort,
     search,
-    prefix: true,
+    prefix: provider.protocol === 'deepseek',
     status: 'pending',
     blocks: [],
   }
@@ -713,12 +705,15 @@ export const continueReply = (sessionId: string, messageId: string) => {
   ) {
     return
   }
-  const { thinking, search } = useSettings.getState()
+  const { thinking, thinkingEffort, search, activeModel } = useSettings.getState()
+  const provider = getActiveProvider()
   const reply: AssistantMessage = {
     ...previous,
     // 未记录请求配置的回复，续写时使用默认模型和当前开关。
-    model: previous.model ?? MODEL,
+    model: previous.model ?? (activeModel || provider.defaultModel || DEFAULT_DEEPSEEK_MODEL),
+    providerId: previous.providerId ?? provider.id,
     thinking: previous.thinking ?? thinking,
+    thinkingEffort: previous.thinkingEffort ?? thinkingEffort,
     search: previous.search ?? search,
     status: 'pending',
     stopReason: undefined,
@@ -998,13 +993,48 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
   }
   streamFlushes.set(sessionId, flush)
 
+  const provider =
+    useSettings.getState().providers.find((item) => item.id === initial.providerId) ??
+    getActiveProvider()
+  const adapter = getProviderAdapter(provider.protocol)
+  const model = initial.model ?? (provider.defaultModel || DEFAULT_DEEPSEEK_MODEL)
+
   try {
     for (let attempt = 0; ; attempt += 1) {
       /** 附件补齐前出错属于上传失败，请求还没有发出 */
       let preparing = true
       let receivedContent = false
       try {
-        const prepared = await prepareFiles(sessionId, request, controller.signal)
+        const prepared =
+          provider.protocol === 'deepseek'
+            ? await prepareFiles(sessionId, request, controller.signal)
+            : request
+
+        let userAttachments: ResolvedAttachment[][] | undefined
+        if (provider.protocol !== 'deepseek') {
+          const preferNativePdf =
+            provider.protocol === 'anthropic' || provider.protocol === 'gemini'
+          const userMessages = [
+            ...getContextRounds(prepared.history).map(([user]) => user),
+            prepared.question,
+          ]
+          userAttachments = await Promise.all(
+            userMessages.map(async (user) => {
+              const items: ResolvedAttachment[] = []
+              for (const file of user.files) {
+                const resolved = await resolveAttachmentForCompat(
+                  file,
+                  preferNativePdf,
+                  controller.signal
+                )
+                if (resolved) {
+                  items.push(resolved)
+                }
+              }
+              return items
+            })
+          )
+        }
         preparing = false
         // 附件就绪后获取本轮信息；续写沿用原回答快照，重新生成的快照独立保存。
         const latestReminder = prepared.prefix
@@ -1020,16 +1050,19 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
           initial.thinking ?? false,
           latestReminder
         )
-        const events = streamMessage(
-          useSettings.getState().apiKey ?? '',
+        const events = adapter.streamChat(
           {
-            model: initial.model ?? MODEL,
-            system: SYSTEM_PROMPT,
+            provider,
+            model,
+            system: provider.systemPrompt || SYSTEM_PROMPT,
             messages,
-            thinking: { type: initial.thinking ? 'enabled' : 'disabled' },
-            safety_check: SAFETY_CHECK,
-            tools: serverTools(initial.search ?? false),
-            ...(titleRequests.has(controller) ? { title: { enabled: true } } : {}),
+            userAttachments,
+            thinking: initial.thinking ?? false,
+            thinkingEffort: initial.thinkingEffort ?? (initial.thinking ? 'medium' : 'off'),
+            search: initial.search ?? false,
+            searchConfig: useSettings.getState().webSearchConfig,
+            latestReminder,
+            enableTitle: titleRequests.has(controller),
           },
           controller.signal
         )
@@ -1056,6 +1089,27 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
           }
         }
         reply = settleReply(reply, 'done', Date.now())
+        if (
+          adapter.generateTitle &&
+          titleRequests.has(controller) &&
+          !controller.signal.aborted &&
+          !get().importingHistory &&
+          !getSession(sessionId)?.title
+        ) {
+          const replyText = getReplyText(reply)
+          if (replyText.trim()) {
+            void adapter
+              .generateTitle(provider, model, prepared.question.content, replyText)
+              .then((title) => {
+                if (title && !get().importingHistory) {
+                  updateSession(sessionId, (session) =>
+                    session.title ? session : { ...session, title }
+                  )
+                  persist(sessionId)
+                }
+              })
+          }
+        }
         break
       } catch (error) {
         if (controller.signal.aborted) {

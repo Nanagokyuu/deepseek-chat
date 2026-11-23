@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { ApiError, verifyApiKey } from '../../services/api/client.js'
+import { ApiError } from '../../services/api/client.js'
+import { getProviderAdapter } from '../../services/api/providers/registry.js'
 import { classifyApiError } from '../../services/api/errors.js'
-import { setApiKey } from '../../services/settings.js'
+import { getActiveProvider, upsertProvider } from '../../services/settings.js'
 import { useTranslate } from '../../i18n/index.js'
 
-/** 输入 API Key 后先用 GET /models 校验，通过才保存 */
+/** 输入 API Key 后先用当前服务商协议校验，通过才保存并刷新模型列表 */
 export const useApiKeyForm = (onSaved?: () => void) => {
   const t = useTranslate()
   const [value, setValue] = useState('')
@@ -35,8 +36,14 @@ export const useApiKeyForm = (onSaved?: () => void) => {
     setVerifying(true)
     setFailure(null)
     try {
-      await verifyApiKey(apiKey)
-      setApiKey(apiKey)
+      const provider = getActiveProvider()
+      const adapter = getProviderAdapter(provider.protocol)
+      const models = await adapter.verify({ ...provider, apiKey })
+      const mergedModels = models.length > 0 ? models : provider.models
+      const defaultModel = mergedModels.includes(provider.defaultModel)
+        ? provider.defaultModel
+        : mergedModels[0] || provider.defaultModel
+      upsertProvider({ ...provider, apiKey, models: mergedModels, defaultModel }, true)
       setValue('')
       onSaved?.()
     } catch (e) {

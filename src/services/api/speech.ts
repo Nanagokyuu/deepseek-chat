@@ -1,12 +1,11 @@
-import { ApiError, API_ORIGIN, request } from './client.js'
+import { ApiError, normalizeOrigin, request } from './client.js'
 
 /**
  * 语音接口：
- * - ASR：POST /v1/tools/asr，multipart 上传 WAV / Ogg Opus，一次返回全文
- * - TTS：POST /v1/tools/tts，返回音频字节流（产出首帧后即返回 200）
- * 鉴权都用 Authorization: Bearer。
+ * - DeepSeek ASR：POST /v1/tools/asr，multipart 上传 WAV / Ogg Opus，一次返回全文
+ * - DeepSeek TTS：POST /v1/tools/tts，返回音频字节流（产出首帧后即返回 200）
+ * - OpenAI 兼容 ASR/TTS：/audio/transcriptions 与 /audio/speech（24kHz PCM）
  */
-const TOOLS_BASE_URL = `${API_ORIGIN}/v1/tools`
 
 export type TtsVoice = 'stella' | 'tide'
 
@@ -17,11 +16,12 @@ export const TTS_SAMPLE_RATE = 24000
 export const transcribe = async (
   apiKey: string,
   audio: Blob,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  baseUrl?: string
 ): Promise<string> => {
   const form = new FormData()
   form.append('file', audio, 'recording.wav')
-  const response = await request(`${TOOLS_BASE_URL}/asr`, {
+  const response = await request(`${normalizeOrigin(baseUrl)}/v1/tools/asr`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}` },
     body: form,
@@ -45,17 +45,76 @@ export const transcribe = async (
   return body.text
 }
 
+/** OpenAI 兼容语音识别：POST /audio/transcriptions */
+export const transcribeOpenAI = async (
+  baseUrl: string,
+  apiKey: string,
+  model: string,
+  audio: Blob,
+  signal?: AbortSignal
+): Promise<string> => {
+  const form = new FormData()
+  form.append('file', audio, 'recording.wav')
+  form.append('model', model || 'whisper-1')
+  const headers: Record<string, string> = {}
+  if (apiKey) {
+    headers.Authorization = `Bearer ${apiKey}`
+  }
+  const response = await request(`${normalizeOrigin(baseUrl)}/audio/transcriptions`, {
+    method: 'POST',
+    headers,
+    body: form,
+    signal,
+  })
+  const body = (await response.json()) as { text?: unknown }
+  if (typeof body?.text !== 'string') {
+    throw new ApiError('protocol', 'Invalid ASR response')
+  }
+  return body.text
+}
+
 /** 语音合成：返回裸 PCM 字节流；服务端默认过滤代码块、表格、引用标记与长公式 */
 export const synthesize = async (
   apiKey: string,
   text: string,
   voice: TtsVoice,
-  signal: AbortSignal
+  signal: AbortSignal,
+  baseUrl?: string
 ): Promise<ReadableStream<Uint8Array>> => {
-  const response = await request(`${TOOLS_BASE_URL}/tts`, {
+  const response = await request(`${normalizeOrigin(baseUrl)}/v1/tools/tts`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ text, voice_id: voice, format: 'pcm', filter_markdown: true }),
+    signal,
+  })
+  if (!response.body) {
+    throw new ApiError('protocol', await response.text())
+  }
+  return response.body
+}
+
+/** OpenAI 兼容语音合成：POST /audio/speech（请求 24kHz 裸 PCM 流） */
+export const synthesizeOpenAI = async (
+  baseUrl: string,
+  apiKey: string,
+  model: string,
+  voice: string,
+  text: string,
+  signal: AbortSignal
+): Promise<ReadableStream<Uint8Array>> => {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (apiKey) {
+    headers.Authorization = `Bearer ${apiKey}`
+  }
+  const response = await request(`${normalizeOrigin(baseUrl)}/audio/speech`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      model: model || 'tts-1',
+      input: text,
+      voice: voice || 'alloy',
+      response_format: 'pcm',
+    }),
     signal,
   })
   if (!response.body) {

@@ -1,5 +1,6 @@
 import { translate, type TranslationMessage } from '../../i18n/index.js'
 import { resizeUploadImage } from '../../utils/resizeUploadImage.js'
+import { platformFetch } from '../platform/http.js'
 import { readMessageEvent } from './parseEvent.js'
 import { readServerSentEvents } from './sse.js'
 import type {
@@ -12,8 +13,9 @@ import type {
 
 /** 构建期 API 地址，默认 https://api.deepseek.com；本地开发支持开发服务器代理 */
 export const API_ORIGIN = __API_ORIGIN__
-/** Anthropic 兼容接口的前缀 */
-const ANTHROPIC_BASE_URL = `${API_ORIGIN}/anthropic/v1`
+/** 去掉末尾斜杠，拼接规范路径 */
+export const normalizeOrigin = (origin?: string) =>
+  (origin?.trim() || API_ORIGIN).replace(/\/+$/, '')
 /** 引用 Files API 上传的图片、调用 Anthropic 兼容 Files API 时必须携带 */
 const FILES_BETA = 'files-api-2025-04-14'
 
@@ -43,13 +45,13 @@ export class ApiError extends Error {
   }
 }
 
-const isErrorBody = (value: unknown): value is ApiErrorBody =>
+export const isErrorBody = (value: unknown): value is ApiErrorBody =>
   typeof value === 'object' &&
   value !== null &&
   'error' in value &&
   typeof (value as ApiErrorBody).error?.message === 'string'
 
-const readErrorResponse = async (
+export const readErrorResponse = async (
   response: Response,
   kind: 'http' | 'protocol' = 'http',
   fallback = response.statusText
@@ -70,7 +72,7 @@ const readErrorResponse = async (
 export const request = async (url: string, init: RequestInit): Promise<Response> => {
   let response: Response
   try {
-    response = await fetch(url, init)
+    response = await platformFetch(url, init)
   } catch (error) {
     if (init.signal?.aborted) {
       throw error
@@ -90,13 +92,39 @@ const anthropicHeaders = (apiKey: string, beta: boolean): Record<string, string>
   ...(beta ? { 'anthropic-beta': FILES_BETA } : {}),
 })
 
-/** 用 GET /models 校验 API Key（不产生费用） */
-export const verifyApiKey = async (apiKey: string, signal?: AbortSignal): Promise<void> => {
-  await request(`${API_ORIGIN}/models`, {
+/** 用 GET /models 校验 API Key（不产生费用），返回可用模型 ID 列表 */
+export const verifyApiKey = async (
+  apiKey: string,
+  signal?: AbortSignal,
+  baseUrl?: string
+): Promise<string[]> => {
+  const response = await request(`${normalizeOrigin(baseUrl)}/models`, {
     method: 'GET',
     headers: { Authorization: `Bearer ${apiKey}` },
     signal,
   })
+  try {
+    const body: unknown = await response.json()
+    if (
+      typeof body === 'object' &&
+      body !== null &&
+      'data' in body &&
+      Array.isArray((body as { data: unknown }).data)
+    ) {
+      return (body as { data: unknown[] }).data
+        .map((item) =>
+          typeof item === 'object' &&
+          item !== null &&
+          typeof (item as { id?: unknown }).id === 'string'
+            ? (item as { id: string }).id
+            : null
+        )
+        .filter((id): id is string => id !== null)
+    }
+  } catch {
+    // 忽略非 JSON 模型列表响应
+  }
+  return []
 }
 
 /**
@@ -107,14 +135,15 @@ export const uploadFile = async (
   apiKey: string,
   file: File,
   purpose: FilePurpose | null,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  baseUrl?: string
 ): Promise<FileObject> => {
   const form = new FormData()
   if (purpose) {
     form.append('purpose', purpose)
   }
   form.append('file', purpose === null ? await resizeUploadImage(file, signal) : file)
-  const response = await request(`${ANTHROPIC_BASE_URL}/files`, {
+  const response = await request(`${normalizeOrigin(baseUrl)}/anthropic/v1/files`, {
     method: 'POST',
     headers: anthropicHeaders(apiKey, true),
     body: form,
@@ -124,8 +153,12 @@ export const uploadFile = async (
 }
 
 /** DELETE /anthropic/v1/files/{file_id} */
-export const deleteFile = async (apiKey: string, fileId: string): Promise<void> => {
-  await request(`${ANTHROPIC_BASE_URL}/files/${encodeURIComponent(fileId)}`, {
+export const deleteFile = async (
+  apiKey: string,
+  fileId: string,
+  baseUrl?: string
+): Promise<void> => {
+  await request(`${normalizeOrigin(baseUrl)}/anthropic/v1/files/${encodeURIComponent(fileId)}`, {
     method: 'DELETE',
     headers: anthropicHeaders(apiKey, true),
   })
@@ -145,9 +178,10 @@ const hasFile = (body: CreateMessageRequest) =>
 export async function* streamMessage(
   apiKey: string,
   body: CreateMessageRequest,
-  signal: AbortSignal
+  signal: AbortSignal,
+  baseUrl?: string
 ): AsyncGenerator<MessageStreamEvent> {
-  const response = await request(`${ANTHROPIC_BASE_URL}/messages`, {
+  const response = await request(`${normalizeOrigin(baseUrl)}/anthropic/v1/messages`, {
     method: 'POST',
     headers: {
       ...anthropicHeaders(apiKey, hasFile(body)),

@@ -2,8 +2,9 @@ import { create } from 'zustand'
 import type { TranslationMessage } from '../../i18n/index.js'
 import { ApiError } from '../api/client.js'
 import { classifyApiError } from '../api/errors.js'
-import { synthesize, TTS_SAMPLE_RATE } from '../api/speech.js'
-import { useSettings } from '../settings.js'
+import { synthesize, synthesizeOpenAI, TTS_SAMPLE_RATE } from '../api/speech.js'
+import { getActiveProvider, useSettings } from '../settings.js'
+import { stripMarkdownForSpeech } from './markdownFilter.js'
 
 /**
  * 朗读：同一时间只读一条回复。
@@ -23,13 +24,18 @@ export const useReadAloud = create<ReadAloudState>(() => ({ messageId: null, sta
 /** 首帧前多缓冲一点，减少网络抖动造成的断续 */
 const START_DELAY = 0.1
 
-let current: { controller: AbortController; context: AudioContext } | null = null
+let current: { controller: AbortController; context: AudioContext | null } | null = null
 
 const finish = (controller: AbortController) => {
   if (current?.controller !== controller) {
     return
   }
-  void current.context.close()
+  if (current.context) {
+    void current.context.close()
+  }
+  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+    window.speechSynthesis.cancel()
+  }
   current = null
   useReadAloud.setState({ messageId: null, status: 'idle' })
 }
@@ -88,18 +94,74 @@ export const toggleReadAloud = (
     return
   }
   const controller = new AbortController()
+  const { ttsVoice, speechConfig, locale } = useSettings.getState()
+  const provider = getActiveProvider()
+
+  const resolvedMode =
+    speechConfig.ttsEngine !== 'auto'
+      ? speechConfig.ttsEngine
+      : provider.protocol === 'deepseek'
+        ? 'deepseek'
+        : speechConfig.apiKey || provider.protocol === 'openai-compatible'
+          ? 'openai'
+          : 'system'
+
+  // 系统原生 speechSynthesis 兜底模式
+  if (resolvedMode === 'system') {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      onError(new Error('Speech synthesis unavailable'))
+      return
+    }
+    const clean = stripMarkdownForSpeech(text)
+    if (!clean) {
+      return
+    }
+    current = { controller, context: null }
+    useReadAloud.setState({ messageId, status: 'playing' })
+    const utterance = new SpeechSynthesisUtterance(clean)
+    utterance.lang = locale
+    utterance.onend = () => finish(controller)
+    utterance.onerror = () => {
+      if (!controller.signal.aborted) {
+        finish(controller)
+        onError(new Error('System TTS failed'))
+      }
+    }
+    window.speechSynthesis.cancel()
+    window.speechSynthesis.speak(utterance)
+    return
+  }
+
   const context = new AudioContext({ sampleRate: TTS_SAMPLE_RATE })
   current = { controller, context }
   useReadAloud.setState({ messageId, status: 'loading' })
-  // 音色在开始朗读时读取，设置中切换后下一次朗读生效
-  const { apiKey, ttsVoice } = useSettings.getState()
 
   void (async () => {
     let nextTime = 0
     let lastSource: AudioBufferSourceNode | null = null
     let rest = new Uint8Array(0)
     try {
-      const stream = await synthesize(apiKey ?? '', text, ttsVoice, controller.signal)
+      const stream =
+        resolvedMode === 'deepseek'
+          ? await synthesize(
+              provider.protocol === 'deepseek' ? provider.apiKey : speechConfig.apiKey,
+              text,
+              ttsVoice,
+              controller.signal,
+              provider.protocol === 'deepseek' ? provider.baseUrl : undefined
+            )
+          : await synthesizeOpenAI(
+              speechConfig.apiKey
+                ? speechConfig.baseUrl
+                : provider.protocol === 'openai-compatible'
+                  ? provider.baseUrl
+                  : speechConfig.baseUrl,
+              speechConfig.apiKey || provider.apiKey,
+              speechConfig.ttsModel,
+              speechConfig.openaiTtsVoice,
+              stripMarkdownForSpeech(text),
+              controller.signal
+            )
       const reader = stream.getReader()
       controller.signal.addEventListener('abort', () => void reader.cancel().catch(() => {}))
       for (;;) {

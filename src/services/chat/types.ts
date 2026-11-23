@@ -1,5 +1,6 @@
 import type { TranslationMessage } from '../../i18n/index.js'
 import type { ApiErrorKind } from '../api/client.js'
+import type { ThinkingEffort } from '../api/providers/types.js'
 import type {
   ChatModel,
   MessageUsage,
@@ -79,8 +80,12 @@ export type AssistantMessage = MessageBranch & {
   createdAt: number
   /** 未记录模型时为 null，续写使用当前默认模型。 */
   model: ChatModel | null
+  /** 发送本条回复时使用的服务商配置 ID */
+  providerId?: string
   /** 请求时是否开启深度思考 */
   thinking?: boolean
+  /** 请求时的思考档位 */
+  thinkingEffort?: ThinkingEffort
   /** 请求时是否声明 deepseek_web_search；关闭时仍声明 deepseek_read_url */
   search?: boolean
   /** 本轮请求的系统信息快照；各回答版本独立保存，续写沿用。历史消息中缺省的快照保持为空。 */

@@ -330,3 +330,64 @@
     cursor: not-allowed;
   }
 }
+
+.effortGroup {
+  display: inline-flex;
+  align-items: center;
+  height: 34px;
+  padding: 2px;
+  border-radius: 18px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  box-sizing: border-box;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.effortIcon {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 4px 0 6px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.effortButton {
+  height: 28px;
+  padding: 0 8px;
+  border: none;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+
+  &:hover {
+    background-color: var(--dsw-alias-interactive-bg-hover);
+  }
+
+  &.effortSelected {
+    background-color: var(--dsw-alias-button-ghost-active-fill);
+    color: var(--dsw-alias-brand-text);
+  }
+}
+
+.modelSelect {
+  max-width: 160px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 18px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  background-color: transparent;
+  color: var(--dsw-alias-label-secondary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+  text-overflow: ellipsis;
+
+  &:hover {
+    background-color: var(--dsw-alias-interactive-bg-hover);
+  }
+}

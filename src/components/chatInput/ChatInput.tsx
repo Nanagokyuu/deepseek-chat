@@ -7,7 +7,18 @@ import {
   IconStopFill16,
   IconThinkOutline14,
 } from '../base/icons.js'
-import { setSearch, setThinking, useSettings } from '../../services/settings.js'
+import {
+  resolveThinkingMode,
+  supportsThinkingEffortLevels,
+  type ThinkingEffort,
+} from '../../services/api/providers/types.js'
+import {
+  setActiveModel,
+  setSearch,
+  setThinking,
+  setThinkingEffort,
+  useSettings,
+} from '../../services/settings.js'
 import { useIsMobile } from '../../app/viewport.js'
 import { sendMessage, stopReply, useChatStore } from '../../services/chat/store.js'
 import {
@@ -50,6 +61,14 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
     (state) => sessionId !== null && Object.hasOwn(state.streaming, sessionId)
   )
   const thinking = useSettings((state) => state.thinking)
+  const thinkingEffort = useSettings((state) => state.thinkingEffort)
+  const providers = useSettings((state) => state.providers)
+  const activeProviderId = useSettings((state) => state.activeProviderId)
+  const activeModel = useSettings((state) => state.activeModel)
+  const activeProvider = providers.find((p) => p.id === activeProviderId) ?? providers[0]
+  const currentModel = activeModel || activeProvider.defaultModel
+  const thinkingMode = resolveThinkingMode(activeProvider, currentModel)
+  const usesEffortLevels = supportsThinkingEffortLevels(activeProvider, currentModel)
   const importingHistory = useChatStore((state) => state.importingHistory)
   const isMobile = useIsMobile()
   const search = useSettings((state) => state.search)
@@ -200,20 +219,50 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
         </div>
       </div>
       <div className={styles.functionRow}>
-        {/* 深度思考 / 智能搜索开关，tooltip 在按钮上方 */}
+        {/* 深度思考 / 思考档位 / 智能搜索 / 模型选择 */}
         <div ref={togglesRef} className={styles.toggles}>
-          <Tooltip content={t('deactivatedThinkTooltip')}>
-            <button
-              type="button"
-              className={clsx(styles.toggle, thinking && styles.selected)}
-              aria-label={t('thinkingSwitch')}
-              aria-pressed={thinking}
-              onClick={() => setThinking(!thinking)}
-            >
-              <IconThinkOutline14 />
-              <span className={styles.toggleLabel}>{t('thinkingSwitch')}</span>
-            </button>
-          </Tooltip>
+          {usesEffortLevels ? (
+            <div className={styles.effortGroup} role="group" aria-label={t('thinkingEffortLabel')}>
+              <span className={styles.effortIcon}>
+                <IconThinkOutline14 />
+              </span>
+              {(
+                [
+                  ['off', 'thinkingEffortOff'],
+                  ['low', 'thinkingEffortLow'],
+                  ['medium', 'thinkingEffortMedium'],
+                  ['high', 'thinkingEffortHigh'],
+                ] as const
+              ).map(([level, key]) => (
+                <button
+                  key={level}
+                  type="button"
+                  className={clsx(
+                    styles.effortButton,
+                    thinkingEffort === level && styles.effortSelected
+                  )}
+                  aria-pressed={thinkingEffort === level}
+                  onClick={() => setThinkingEffort(level as ThinkingEffort)}
+                >
+                  {t(key)}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <Tooltip content={t('deactivatedThinkTooltip')}>
+              <button
+                type="button"
+                className={clsx(styles.toggle, thinking && styles.selected)}
+                aria-label={t('thinkingSwitch')}
+                aria-pressed={thinking}
+                disabled={thinkingMode === 'none'}
+                onClick={() => setThinking(!thinking)}
+              >
+                <IconThinkOutline14 />
+                <span className={styles.toggleLabel}>{t('thinkingSwitch')}</span>
+              </button>
+            </Tooltip>
+          )}
           <Tooltip content={t('deactivatedSearchTooltip')}>
             <button
               type="button"
@@ -226,6 +275,20 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
               <span className={styles.toggleLabel}>{t('search')}</span>
             </button>
           </Tooltip>
+          {activeProvider.models.length > 0 ? (
+            <select
+              className={styles.modelSelect}
+              aria-label={t('providersModel')}
+              value={currentModel}
+              onChange={(event) => setActiveModel(event.target.value)}
+            >
+              {activeProvider.models.map((model) => (
+                <option key={model} value={model}>
+                  {model}
+                </option>
+              ))}
+            </select>
+          ) : null}
         </div>
         <div className={styles.right}>
           <VoiceButton

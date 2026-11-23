@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { TranslationMessage } from '../../i18n/index.js'
-import { transcribe } from '../../services/api/speech.js'
+import { transcribe, transcribeOpenAI } from '../../services/api/speech.js'
 import { startRecording, type Recording } from '../../services/speech/recorder.js'
-import { useSettings } from '../../services/settings.js'
+import { getActiveProvider, useSettings } from '../../services/settings.js'
 import { showToast } from '../base/toastState.js'
 
 export type VoiceInputStatus = 'idle' | 'recording' | 'transcribing'
@@ -75,7 +75,33 @@ export const useVoiceInput = (onText: (text: string) => void) => {
       controller = new AbortController()
       controllerRef.current = controller
       setStatus('transcribing')
-      const text = await transcribe(useSettings.getState().apiKey ?? '', audio, controller.signal)
+      const { speechConfig } = useSettings.getState()
+      const provider = getActiveProvider()
+      const resolvedAsr =
+        speechConfig.asrEngine !== 'auto'
+          ? speechConfig.asrEngine
+          : provider.protocol === 'deepseek'
+            ? 'deepseek'
+            : 'openai'
+      const text =
+        resolvedAsr === 'deepseek'
+          ? await transcribe(
+              provider.protocol === 'deepseek' ? provider.apiKey : speechConfig.apiKey,
+              audio,
+              controller.signal,
+              provider.protocol === 'deepseek' ? provider.baseUrl : undefined
+            )
+          : await transcribeOpenAI(
+              speechConfig.apiKey
+                ? speechConfig.baseUrl
+                : provider.protocol === 'openai-compatible'
+                  ? provider.baseUrl
+                  : speechConfig.baseUrl,
+              speechConfig.apiKey || provider.apiKey,
+              speechConfig.asrModel,
+              audio,
+              controller.signal
+            )
       if (controller.signal.aborted || operationRef.current !== operation) {
         return
       }
