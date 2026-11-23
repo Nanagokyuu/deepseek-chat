@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useAnchoredPosition, useDismiss } from './anchored.js'
 import { IconCheckOutline16, IconChevronDownOutline14 } from './icons.js'
@@ -20,6 +20,7 @@ export const Select = <T extends string>({
   className,
   disabled = false,
   showArrow = true,
+  prefixIcon,
 }: {
   value: T
   options: SelectOption<T>[]
@@ -29,6 +30,7 @@ export const Select = <T extends string>({
   className?: string
   disabled?: boolean
   showArrow?: boolean
+  prefixIcon?: ReactNode
 }) => {
   const [open, setOpen] = useState(false)
   const current = options.find((option) => option.value === value)
@@ -52,6 +54,7 @@ export const Select = <T extends string>({
         disabled={disabled}
         onClick={() => setOpen((value) => !value)}
       >
+        {prefixIcon}
         {current ? (
           <span lang={current.lang}>{current.label}</span>
         ) : (

@@ -223,32 +223,57 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
         {/* 深度思考 / 思考档位 / 智能搜索 / 模型选择 */}
         <div ref={togglesRef} className={styles.toggles}>
           {usesEffortLevels ? (
-            <div className={styles.effortGroup} role="group" aria-label={t('thinkingEffortLabel')}>
-              <span className={styles.effortIcon}>
-                <IconThinkOutline14 />
-              </span>
-              {(
-                [
-                  ['off', 'thinkingEffortOff'],
-                  ['low', 'thinkingEffortLow'],
-                  ['medium', 'thinkingEffortMedium'],
-                  ['high', 'thinkingEffortHigh'],
-                ] as const
-              ).map(([level, key]) => (
-                <button
-                  key={level}
-                  type="button"
-                  className={clsx(
-                    styles.effortButton,
-                    thinkingEffort === level && styles.effortSelected
-                  )}
-                  aria-pressed={thinkingEffort === level}
-                  onClick={() => setThinkingEffort(level as ThinkingEffort)}
-                >
-                  {t(key)}
-                </button>
-              ))}
-            </div>
+            isMobile ? (
+              <Select
+                ariaLabel={t('thinkingEffortLabel')}
+                className={clsx(
+                  styles.toggle,
+                  styles.mobileEffortSelect,
+                  thinkingEffort !== 'off' && styles.selected
+                )}
+                showArrow={false}
+                prefixIcon={<IconThinkOutline14 />}
+                value={thinkingEffort}
+                options={[
+                  { value: 'off', label: t('thinkingEffortOff') },
+                  { value: 'low', label: t('thinkingEffortLow') },
+                  { value: 'medium', label: t('thinkingEffortMedium') },
+                  { value: 'high', label: t('thinkingEffortHigh') },
+                ]}
+                onChange={(level) => setThinkingEffort(level as ThinkingEffort)}
+              />
+            ) : (
+              <div
+                className={styles.effortGroup}
+                role="group"
+                aria-label={t('thinkingEffortLabel')}
+              >
+                <span className={styles.effortIcon}>
+                  <IconThinkOutline14 />
+                </span>
+                {(
+                  [
+                    ['off', 'thinkingEffortOff'],
+                    ['low', 'thinkingEffortLow'],
+                    ['medium', 'thinkingEffortMedium'],
+                    ['high', 'thinkingEffortHigh'],
+                  ] as const
+                ).map(([level, key]) => (
+                  <button
+                    key={level}
+                    type="button"
+                    className={clsx(
+                      styles.effortButton,
+                      thinkingEffort === level && styles.effortSelected
+                    )}
+                    aria-pressed={thinkingEffort === level}
+                    onClick={() => setThinkingEffort(level as ThinkingEffort)}
+                  >
+                    {t(key)}
+                  </button>
+                ))}
+              </div>
+            )
           ) : (
             <Tooltip content={t('deactivatedThinkTooltip')}>
               <button
