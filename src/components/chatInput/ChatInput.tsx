@@ -33,6 +33,7 @@ import {
 } from '../../services/chat/drafts.js'
 import { stopReadAloud } from '../../services/speech/readAloud.js'
 import { IconButton } from '../base/IconButton.js'
+import { Select } from '../base/Select.js'
 import { Tooltip } from '../base/Tooltip.js'
 import { ensureApiKey } from '../settings/settingsDialogState.js'
 import { DragMask, useFileDrop } from './DragMask.js'
@@ -276,18 +277,13 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
             </button>
           </Tooltip>
           {activeProvider.models.length > 0 ? (
-            <select
+            <Select
+              ariaLabel={t('providersModel')}
               className={styles.modelSelect}
-              aria-label={t('providersModel')}
               value={currentModel}
-              onChange={(event) => setActiveModel(event.target.value)}
-            >
-              {activeProvider.models.map((model) => (
-                <option key={model} value={model}>
-                  {model}
-                </option>
-              ))}
-            </select>
+              options={activeProvider.models.map((model) => ({ value: model, label: model }))}
+              onChange={setActiveModel}
+            />
           ) : null}
         </div>
         <div className={styles.right}>
