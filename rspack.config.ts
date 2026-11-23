@@ -85,6 +85,7 @@ export const createConfig = ({
       patterns: [
         { from: path.resolve(root, 'LICENSE'), to: 'LICENSE', toType: 'file' },
         { from: path.resolve(root, 'LICENSE-MIT'), to: 'LICENSE-MIT', toType: 'file' },
+        { from: path.resolve(root, 'src/assets/favicon.svg'), to: 'favicon.svg', toType: 'file' },
       ],
     }),
   ],

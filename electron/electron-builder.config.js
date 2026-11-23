@@ -30,6 +30,7 @@ module.exports = {
 
   // ---------------- Windows: NSIS 安装器 ----------------
   win: {
+    icon: 'assets/icon.ico',
     target: [{ target: 'nsis', arch: ['x64', 'arm64'] }],
     artifactName: '${productName}-${version}-${arch}-setup.${ext}',
   },
@@ -48,6 +49,7 @@ module.exports = {
 
   // ---------------- macOS: Universal 通用二进制 DMG 镜像 ----------------
   mac: {
+    icon: 'assets/icon.icns',
     category: 'public.app-category.productivity',
     target: [{ target: 'dmg', arch: ['universal'] }],
     hardenedRuntime: true,
@@ -70,6 +72,7 @@ module.exports = {
 
   // ---------------- Linux: 第一期 AppImage，二期预备 deb / rpm / pacman (.pkg.tar.zst) ----------------
   linux: {
+    icon: 'assets/icons',
     target: linuxTargets,
     category: 'Network;Chat;Utility;',
     synopsis: 'Multi-provider AI Chat Client',
