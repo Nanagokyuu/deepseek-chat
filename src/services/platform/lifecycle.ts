@@ -12,9 +12,10 @@ export const bindPlatformBackButton = (onBack: () => boolean): (() => void) => {
     return () => {}
   }
   let active = true
-  let removeListener: (() => Promise<void>) | undefined
-  void appPlugin
-    .addListener('backButton', ({ canGoBack }) => {
+  let removeListener: (() => Promise<void> | void) | undefined
+  try {
+    // 原生桥接层的 Plugins.App.addListener 可能同步返回句柄或返回 Promise
+    const maybeHandle = appPlugin.addListener('backButton', ({ canGoBack }) => {
       if (!active) {
         return
       }
@@ -22,21 +23,30 @@ export const bindPlatformBackButton = (onBack: () => boolean): (() => void) => {
         return
       }
       if (!canGoBack) {
-        void appPlugin.exitApp?.()
+        void Promise.resolve(appPlugin.exitApp?.()).catch(() => {})
       }
     })
-    .then((handle) => {
-      if (active) {
-        removeListener = handle.remove
-      } else {
-        void handle.remove()
-      }
-    })
-    .catch(() => {})
+    void Promise.resolve(maybeHandle)
+      .then((handle) => {
+        if (!handle || typeof handle.remove !== 'function') {
+          return
+        }
+        if (active) {
+          removeListener = handle.remove
+        } else {
+          void Promise.resolve(handle.remove()).catch(() => {})
+        }
+      })
+      .catch(() => {})
+  } catch {
+    // 忽略不支持 backButton 的平台（如 iOS）
+  }
 
   return () => {
     active = false
-    void removeListener?.().catch(() => {})
+    if (removeListener) {
+      void Promise.resolve(removeListener()).catch(() => {})
+    }
   }
 }
 
@@ -47,6 +57,8 @@ export const syncSystemStatusBar = (theme: 'light' | 'dark'): void => {
   }
   const statusBar = getCapacitorBridge()?.Plugins?.StatusBar
   if (statusBar?.setStyle) {
-    void statusBar.setStyle({ style: theme === 'dark' ? 'DARK' : 'LIGHT' }).catch(() => {})
+    void Promise.resolve(statusBar.setStyle({ style: theme === 'dark' ? 'DARK' : 'LIGHT' })).catch(
+      () => {}
+    )
   }
 }
