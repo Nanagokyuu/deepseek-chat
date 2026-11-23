@@ -19,6 +19,7 @@ export const Select = <T extends string>({
   ariaLabel,
   className,
   disabled = false,
+  showArrow = true,
 }: {
   value: T
   options: SelectOption<T>[]
@@ -27,6 +28,7 @@ export const Select = <T extends string>({
   ariaLabel?: string
   className?: string
   disabled?: boolean
+  showArrow?: boolean
 }) => {
   const [open, setOpen] = useState(false)
   const current = options.find((option) => option.value === value)
@@ -55,9 +57,11 @@ export const Select = <T extends string>({
         ) : (
           <span className={styles.placeholder}>{placeholder}</span>
         )}
-        <span className={styles.arrow}>
-          <IconChevronDownOutline14 />
-        </span>
+        {showArrow ? (
+          <span className={styles.arrow}>
+            <IconChevronDownOutline14 />
+          </span>
+        ) : null}
       </button>
       {open && !disabled
         ? createPortal(

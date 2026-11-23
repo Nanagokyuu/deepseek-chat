@@ -280,6 +280,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
             <Select
               ariaLabel={t('providersModel')}
               className={styles.modelSelect}
+              showArrow={false}
               value={currentModel}
               options={activeProvider.models.map((model) => ({ value: model, label: model }))}
               onChange={setActiveModel}

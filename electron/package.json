@@ -9,9 +9,9 @@
     "build": "tsc",
     "start": "electron .",
     "pack": "npm run build && capacitor-electron vendor && electron-builder --config electron-builder.config.js",
-    "pack:win": "npm run build && capacitor-electron vendor && electron-builder --win nsis --config electron-builder.config.js",
-    "pack:mac": "npm run build && capacitor-electron vendor && electron-builder --mac dmg --config electron-builder.config.js",
-    "pack:linux": "npm run build && capacitor-electron vendor && electron-builder --linux AppImage --config electron-builder.config.js",
+    "pack:win": "npm run build && capacitor-electron vendor && electron-builder --win nsis --x64 --arm64 --config electron-builder.config.js",
+    "pack:mac": "npm run build && capacitor-electron vendor && electron-builder --mac dmg --x64 --arm64 --config electron-builder.config.js",
+    "pack:linux": "npm run build && capacitor-electron vendor && electron-builder --linux AppImage --x64 --arm64 --config electron-builder.config.js",
     "pack:linux:deb": "npm run build && capacitor-electron vendor && LINUX_TARGETS=deb electron-builder --linux deb --config electron-builder.config.js",
     "pack:linux:rpm": "npm run build && capacitor-electron vendor && LINUX_TARGETS=rpm electron-builder --linux rpm --config electron-builder.config.js",
     "pack:linux:pacman": "npm run build && capacitor-electron vendor && LINUX_TARGETS=pacman electron-builder --linux pacman --config electron-builder.config.js"
