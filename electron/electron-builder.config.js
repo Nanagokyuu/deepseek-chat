@@ -46,10 +46,10 @@ module.exports = {
     deleteAppDataOnUninstall: false,
   },
 
-  // ---------------- macOS: DMG 镜像 ----------------
+  // ---------------- macOS: Universal 通用二进制 DMG 镜像 ----------------
   mac: {
     category: 'public.app-category.productivity',
-    target: [{ target: 'dmg', arch: ['arm64', 'x64'] }],
+    target: [{ target: 'dmg', arch: ['universal'] }],
     hardenedRuntime: true,
     gatekeeperAssess: false,
     entitlements: 'build/entitlements.mac.plist',
